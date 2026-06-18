@@ -43,16 +43,18 @@ export default function App() {
   }, []);
 
   async function handleIngest() {
-    if (!message.trim()) return;
-    setLoading(true);
-    try {
-      await ingestMessage(message);
-      setMessage("");
-      await refreshAll();
-    } finally {
-      setLoading(false);
-    }
+  if (!message.trim()) return;
+  setLoading(true);
+  try {
+    await ingestMessage(message);
+    setMessage("");
+  } catch (e) {
+    console.error("ingest error:", e);
+  } finally {
+    await refreshAll();
+    setLoading(false);
   }
+}
 
   async function handleStateChange(loadId, newState) {
     await changeLoadState(loadId, newState);
