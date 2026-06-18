@@ -1,9 +1,9 @@
 """
-Core data structures for Dispatch.
+Core data structures for Dispatch v2.
 
-A Load is the central object. It moves through a lifecycle of states.
-Kept as plain Python so the structure is obvious and the validation logic
-in validator.py can operate on it directly with no framework in the way.
+Same as v1 plus one new field: agent_trace_id, which links a load to the trace
+of the agent run that processed it, so the frontend can show the full agent
+reasoning for any load that went through the agent.
 """
 
 from datetime import datetime
@@ -26,7 +26,6 @@ LOAD_STATES = [
     STATE_BILLED,
 ]
 
-# Which state transitions are allowed. The state machine enforces this.
 ALLOWED_TRANSITIONS = {
     STATE_DRAFT: [STATE_NEEDS_REVIEW, STATE_CONFIRMED],
     STATE_NEEDS_REVIEW: [STATE_CONFIRMED, STATE_DRAFT],
@@ -45,9 +44,6 @@ EQUIP_UNKNOWN = "unknown"
 
 EQUIPMENT_TYPES = [EQUIP_DRY_VAN, EQUIP_REEFER, EQUIP_FLATBED, EQUIP_UNKNOWN]
 
-
-# Maximum payload weight in pounds per equipment type.
-# Real freight has more nuance, but this captures the validation pattern.
 EQUIPMENT_WEIGHT_LIMITS = {
     EQUIP_DRY_VAN: 45000,
     EQUIP_REEFER: 43500,
@@ -75,13 +71,11 @@ class Load:
         validation_errors=None,
         inferred_fields=None,
         actions=None,
+        agent_trace_id="",
         created_at=None,
         source_message="",
     ):
-        # Identity
         self.load_id = load_id
-
-        # Core shipment details (extracted from the message)
         self.origin_city = origin_city
         self.origin_state = origin_state
         self.dest_city = dest_city
@@ -91,12 +85,11 @@ class Load:
         self.commodity = commodity
         self.pickup_date = pickup_date
         self.reference_number = reference_number
-
-        # System fields
         self.state = state
         self.validation_errors = validation_errors if validation_errors is not None else []
         self.inferred_fields = inferred_fields if inferred_fields is not None else []
         self.actions = actions if actions is not None else []
+        self.agent_trace_id = agent_trace_id
         self.created_at = created_at if created_at is not None else datetime.utcnow().isoformat()
         self.source_message = source_message
 
@@ -116,13 +109,13 @@ class Load:
             "validation_errors": self.validation_errors,
             "inferred_fields": self.inferred_fields,
             "actions": self.actions,
+            "agent_trace_id": self.agent_trace_id,
             "created_at": self.created_at,
             "source_message": self.source_message,
         }
 
     @staticmethod
     def from_dict(d):
-        """Rebuild a Load from a stored dict (e.g. a Supabase row)."""
         return Load(
             load_id=d.get("load_id"),
             origin_city=d.get("origin_city", ""),
@@ -138,6 +131,7 @@ class Load:
             validation_errors=d.get("validation_errors") or [],
             inferred_fields=d.get("inferred_fields") or [],
             actions=d.get("actions") or [],
+            agent_trace_id=d.get("agent_trace_id", ""),
             created_at=d.get("created_at"),
             source_message=d.get("source_message", ""),
         )
